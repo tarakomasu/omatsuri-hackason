@@ -54,6 +54,11 @@ function FestivalBackgroundWithYataiInner() {
   const rootRef = useRef<HTMLDivElement>(null);
   // ペアインデックス（常に2つだけ表示）
   const [step, setStep] = useState(0);
+  // タッチ操作用
+  const touchStartYRef = useRef<number | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
+  // 端末の操作系（タッチ有無）
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   // フォーカス可能にしてキーハンドリング
   useEffect(() => {
@@ -70,14 +75,74 @@ function FestivalBackgroundWithYataiInner() {
         setStep((s) => (s > 0 ? 0 : 0));
       }
     };
+
+    // タッチで上下スワイプ検出（スマホ向け）
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      touchStartYRef.current = t.clientY;
+      touchStartXRef.current = t.clientX;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      // リンクやボタンなどの操作を優先して干渉しない
+      const target = e.target as Element | null;
+      if (target && target.closest && target.closest("a, button")) return;
+
+      const startY = touchStartYRef.current;
+      const startX = touchStartXRef.current;
+      touchStartYRef.current = null;
+      touchStartXRef.current = null;
+      if (startY == null || startX == null) return;
+
+      const changed = e.changedTouches[0];
+      const dy = changed.clientY - startY;
+      const dx = changed.clientX - startX;
+      const absY = Math.abs(dy);
+      const absX = Math.abs(dx);
+      const threshold = Math.max(40, Math.min(80, Math.floor(window.innerHeight * 0.06))); // 40〜80px 目安
+
+      if (absY > absX && absY >= threshold) {
+        if (dy < 0) {
+          // 上スワイプ -> すすむ
+          setStep(1);
+        } else {
+          // 下スワイプ -> もどる
+          setStep(0);
+        }
+      }
+    };
     // ルートにフォーカスを当てておく（初回のみ）
     el.focus();
     el.addEventListener("keydown", onKeyDown);
-    return () => el.removeEventListener("keydown", onKeyDown);
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("keydown", onKeyDown);
+      el.removeEventListener("touchstart", onTouchStart as any);
+      el.removeEventListener("touchend", onTouchEnd as any);
+    };
   }, []);
 
+  // タッチ端末の検出（SSR無効のため安全にwindow参照可）
+  useEffect(() => {
+    const hasTouch =
+      (typeof window !== "undefined" && "ontouchstart" in window) ||
+      (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
+    setIsTouchDevice(!!hasTouch);
+  }, []);
+
+  // ヒント文言（操作仕様に合わせて動的に表示）
+  const hintText = isTouchDevice
+    ? step === 0
+      ? "上にスワイプ または タップで すすむ"
+      : "下にスワイプ または タップで もどる"
+    : step === 0
+      ? "↑キー または Enter/Space で すすむ"
+      : "↓キー または Enter/Space で もどる";
+
+  const rootAria = `お祭り会場 背景。${isTouchDevice ? "上にスワイプやタップで進みます。" : "↑キーで進みます。"}`;
+
   return (
-    <div className="background-container" ref={rootRef} tabIndex={0} aria-label="お祭り会場 背景。上向き矢印キーで進みます。">
+    <div className="background-container" ref={rootRef} tabIndex={0} aria-label={rootAria}>
       {/* === 夜空と提灯 === */}
       <div className="sky">
         {/* 上半分：夜空 */}
@@ -132,8 +197,20 @@ function FestivalBackgroundWithYataiInner() {
         )}
 
         {/* ヒント */}
-        <div className="hint">
-          {step === 0 ? "↑キーで すすむ" : "↓キーで もどる"}
+        <div
+          className="hint"
+          role="button"
+          tabIndex={0}
+          aria-label={isTouchDevice ? (step === 0 ? "すすむ（タップ/上スワイプ）" : "もどる（タップ/下スワイプ）") : (step === 0 ? "すすむ（Enter/↑キー）" : "もどる（Enter/↓キー）")}
+          onClick={() => setStep((s) => (s === 0 ? 1 : 0))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setStep((s) => (s === 0 ? 1 : 0));
+            }
+          }}
+        >
+          {hintText}
         </div>
       </div>
 
@@ -239,6 +316,12 @@ function FestivalBackgroundWithYataiInner() {
           color: #0c4a6e;
           box-shadow: 0 6px 16px rgba(0,0,0,0.1);
           animation: pulse 1.8s ease-in-out infinite;
+          pointer-events: auto; /* タップ可能に */
+          cursor: pointer;
+          user-select: none;
+        }
+        .hint:focus-visible {
+          outline: 4px solid rgba(56, 189, 248, 0.6);
         }
         @keyframes pulse {
           0%, 100% { transform: translateX(-50%) scale(1); }

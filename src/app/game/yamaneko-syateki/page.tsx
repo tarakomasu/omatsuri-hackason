@@ -7,6 +7,8 @@ import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useGame } from "@/context/GameContext";
 import Toast from "@/components/Toast";
+import Link from "next/link";
+import RankingFab from "@/components/RankingFab";
 
 type GameState = "TOP" | "PLAYING" | "PAUSED" | "GAMEOVER";
 type DistanceKey = "near" | "normal" | "far";
@@ -1003,6 +1005,8 @@ export default function Page() {
 
     return (
         <div id="yamaneko-shooter" className="relative w-screen h-[100dvh] bg-[#101030] overflow-hidden">
+            {/* Show Ranking FAB only when not playing */}
+            {gameState !== "PLAYING" && <RankingFab />}
             <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 75, position: [0, 1.7, 10], far: 800 }} gl={{ antialias: true }}>
                 {/* 背景色を少し明るく (元: 0x000020) */}
                 <color attach="background" args={[0x202040]} />
@@ -1214,6 +1218,16 @@ export default function Page() {
                     {(controlMode == null || controlModeWarning) && (
                         <p className="mt-4 text-xs md:text-sm text-red-300">操作モードを選択してください（PC / モバイル）</p>
                     )}
+                    {/* Back to Home */}
+                    <div className="mt-5">
+                        <Link
+                            href="/"
+                            data-ui="true"
+                            className="inline-block px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shadow-md"
+                        >
+                            ホームに戻る
+                        </Link>
+                    </div>
                 </div>
             )}
 
@@ -1351,6 +1365,8 @@ export default function Page() {
                     </div>
                     <div className="pt-3 mt-2 border-t border-white/20 space-y-2">
                         <button onClick={() => setGameState("PLAYING")} className="w-full p-3 bg-green-500 hover:bg-green-600 text-white font-bold text-lg rounded-lg shadow-md">ゲームに戻る</button>
+                        {/* Back to Home */}
+                        <Link href="/" data-ui="true" className="w-full block text-center p-3 bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg rounded-lg shadow-md">ホームに戻る</Link>
                         <button onClick={returnToTitle} className="w-full p-3 bg-red-500 hover:bg-red-600 text-white font-bold text-lg rounded-lg shadow-md">タイトルに戻る</button>
                     </div>
                 </div>
